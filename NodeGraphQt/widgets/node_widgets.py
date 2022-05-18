@@ -20,7 +20,8 @@ class _NodeGroupBox(QtWidgets.QGroupBox):
         super(_NodeGroupBox, self).setTitle(text)
 
     def setTitleAlign(self, align='center'):
-        text_color = self.palette().text().color().toTuple()
+        # text_color = self.palette().text().color().toTuple()
+        text_color = (255, 255, 255) # Temporary fix
         style_dict = {
             'QGroupBox': {
                 'background-color': 'rgba(0, 0, 0, 0)',
