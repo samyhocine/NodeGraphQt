@@ -1,10 +1,7 @@
 #!/usr/bin/python
 from NodeGraphQt.base.commands import PropertyChangedCmd
 from NodeGraphQt.base.model import NodeModel
-from NodeGraphQt.constants import (NODE_PROP,
-                                   NODE_LAYOUT_DIRECTION,
-                                   NODE_LAYOUT_VERTICAL,
-                                   NODE_LAYOUT_HORIZONTAL)
+from NodeGraphQt.constants import NodePropWidgetEnum
 
 
 class _ClassProperty(object):
@@ -26,9 +23,7 @@ class NodeObject(object):
         :class:`NodeGraphQt.BackdropNode`
 
     Args:
-        qgraphics_views (dict): Dictionary with the node layout type as the key
-            and a custom graphics item subclassed from the ``AbstractNodeItem``
-            as the value.
+        qgraphics_item (AbstractNodeItem): QGraphicsItem item used for drawing.
 
             .. code-block:: python
 
@@ -36,11 +31,8 @@ class NodeObject(object):
 
                 class BaseNode(NodeObject):
 
-                    def __init__(self, qgraphics_views=None):
-                        qgraphics_views = qgraphics_views or {
-                            NodeGraphQt.constants.NODE_LAYOUT_HORIZONTAL: NodeItem,
-                            NodeGraphQt.constants.NODE_LAYOUT_VERTICAL: NodeItemVertical
-                        }
+                    def __init__(self, qgraphics_item=None):
+                        qgraphics_item = qgraphics_item or NodeItem
                         super(BaseNode, self).__init__(qgraphics_views)
 
     """
@@ -51,29 +43,27 @@ class NodeObject(object):
     # Base node name.
     NODE_NAME = None
 
-    def __init__(self, qgraphics_views=None):
+    def __init__(self, qgraphics_item=None):
+        """
+        Args:
+            qgraphics_item (AbstractNodeItem): QGraphicsItem used for drawing.
+        """
         self._graph = None
         self._model = NodeModel()
         self._model.type_ = self.type_
         self._model.name = self.NODE_NAME
 
-        _NodeItem = None
-        if NODE_LAYOUT_DIRECTION is NODE_LAYOUT_VERTICAL:
-            _NodeItem = qgraphics_views.get(NODE_LAYOUT_VERTICAL)
-        elif NODE_LAYOUT_DIRECTION is NODE_LAYOUT_HORIZONTAL:
-            _NodeItem = qgraphics_views.get(NODE_LAYOUT_HORIZONTAL)
-
+        _NodeItem = qgraphics_item
         if _NodeItem is None:
-            raise ValueError(
-                'qgraphics item for the {} node layout can\'t be None!'.format({
-                    NODE_LAYOUT_VERTICAL: 'vertical',
-                    NODE_LAYOUT_HORIZONTAL: 'horizontal'
-                }[NODE_LAYOUT_DIRECTION]))
+            raise RuntimeError(
+                'No qgraphics item specified for the node object!'
+            )
 
         self._view = _NodeItem()
         self._view.type_ = self.type_
         self._view.name = self.model.name
         self._view.id = self._model.id
+        self._view.layout_direction = self._model.layout_direction
 
     def __repr__(self):
         return '<{}("{}") object at {}>'.format(
@@ -217,6 +207,7 @@ class NodeObject(object):
                 'width': 0.0,
                 'height: 0.0,
                 'pos': (0.0, 0.0),
+                'layout_direction': 0,
                 'custom': {},
                 }
             }
@@ -303,7 +294,7 @@ class NodeObject(object):
         self.set_property('selected', selected)
 
     def create_property(self, name, value, items=None, range=None,
-                        widget_type=NODE_PROP, tab=None):
+                        widget_type=None, tab=None):
         """
         Creates a custom property to the node.
 
@@ -312,34 +303,23 @@ class NodeObject(object):
             :class:`NodeGraphQt.PropertiesBinWidget`
 
         Hint:
-            Here are some constants variables used to define the node
-            widget type in the ``PropertiesBinWidget``.
-
-            - :attr:`NodeGraphQt.constants.NODE_PROP`
-            - :attr:`NodeGraphQt.constants.NODE_PROP_QLABEL`
-            - :attr:`NodeGraphQt.constants.NODE_PROP_QLINEEDIT`
-            - :attr:`NodeGraphQt.constants.NODE_PROP_QTEXTEDIT`
-            - :attr:`NodeGraphQt.constants.NODE_PROP_QCOMBO`
-            - :attr:`NodeGraphQt.constants.NODE_PROP_QCHECKBOX`
-            - :attr:`NodeGraphQt.constants.NODE_PROP_QSPINBOX`
-            - :attr:`NodeGraphQt.constants.NODE_PROP_COLORPICKER`
-            - :attr:`NodeGraphQt.constants.NODE_PROP_FILE`
-            - :attr:`NodeGraphQt.constants.NODE_PROP_VECTOR2`
-            - :attr:`NodeGraphQt.constants.NODE_PROP_VECTOR3`
-            - :attr:`NodeGraphQt.constants.NODE_PROP_VECTOR4`
-            - :attr:`NodeGraphQt.constants.NODE_PROP_FLOAT`
-            - :attr:`NodeGraphQt.constants.NODE_PROP_INT`
-            - :attr:`NodeGraphQt.constants.NODE_PROP_BUTTON`
+            To see all the available property widget types to display in
+            the ``PropertiesBinWidget`` widget checkout
+            :attr:`NodeGraphQt.constants.NodePropWidgetEnum`.
 
         Args:
             name (str): name of the property.
             value (object): data.
-            items (list[str]): items used by widget type ``NODE_PROP_QCOMBO``
-            range (tuple)): ``(min, max)`` values used by ``NODE_PROP_SLIDER``
+            items (list[str]): items used by widget type
+                attr:`NodeGraphQt.constants.NodePropWidgetEnum.QCOMBO_BOX`
+            range (tuple or list): ``(min, max)`` values used by
+                :attr:`NodeGraphQt.constants.NodePropWidgetEnum.SLIDER`
             widget_type (int): widget flag to display in the
                 :class:`NodeGraphQt.PropertiesBinWidget`
-            tab (str): name of the widget tab to display in the properties bin.
+            tab (str): name of the widget tab to display in the
+                :class:`NodeGraphQt.PropertiesBinWidget`.
         """
+        widget_type = widget_type or NodePropWidgetEnum.HIDDEN.value
         self.model.add_property(name, value, items, range, widget_type, tab)
 
     def properties(self):
@@ -396,6 +376,10 @@ class NodeObject(object):
             if hasattr(self.view, name):
                 setattr(self.view, name, value)
             self.model.set_property(name, value)
+
+        # redraw the node for custom properties.
+        if self.model.is_custom_property(name):
+            self.view.draw_node()
 
     def has_property(self, name):
         """
@@ -469,3 +453,35 @@ class NodeObject(object):
             self.model.pos = self.view.xy_pos
 
         return self.model.pos
+
+    def layout_direction(self):
+        """
+        Returns layout direction for this node.
+
+        See Also:
+            :meth:`NodeObject.set_layout_direction`
+
+        Returns:
+            int: node layout direction.
+        """
+        return self.model.layout_direction
+
+    def set_layout_direction(self, value=0):
+        """
+        Sets the node layout direction to either horizontal or vertical on
+        the current node only.
+
+        `Implemented in` ``v0.3.0``
+
+        See Also:
+            :meth:`NodeGraph.set_layout_direction`
+            :meth:`NodeObject.layout_direction`
+
+        Warnings:
+            This function does not register to the undo stack.
+
+        Args:
+            value (int): layout direction mode.
+        """
+        self.model.layout_direction = value
+        self.view.layout_direction = value

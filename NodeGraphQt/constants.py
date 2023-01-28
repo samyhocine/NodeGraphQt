@@ -17,37 +17,23 @@ __doc__ = """
 URI_SCHEME = 'nodegraphqt://'
 URN_SCHEME = 'nodegraphqt::'
 
-# === PATHS ===
-
+# PATHS
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 ICON_PATH = os.path.join(BASE_PATH, 'widgets', 'icons')
 ICON_DOWN_ARROW = os.path.join(ICON_PATH, 'down_arrow.png')
 ICON_NODE_BASE = os.path.join(ICON_PATH, 'node_base.png')
 
-# === DRAW STACK ORDER ===
-
+# DRAW STACK ORDER
 Z_VAL_PIPE = -1
 Z_VAL_NODE = 1
 Z_VAL_PORT = 2
 Z_VAL_NODE_WIDGET = 3
 
-# === ITEM CACHE MODE ===
-
+# ITEM CACHE MODE
 # QGraphicsItem.NoCache
 # QGraphicsItem.DeviceCoordinateCache
 # QGraphicsItem.ItemCoordinateCache
-
 ITEM_CACHE_MODE = QtWidgets.QGraphicsItem.DeviceCoordinateCache
-
-# === NODE LAYOUT DIRECTION ===
-
-#: Mode for vertical node layout.
-NODE_LAYOUT_VERTICAL = 0
-#: Mode for horizontal node layout.
-NODE_LAYOUT_HORIZONTAL = 1
-#: Variable for setting the node layout direction.
-# NODE_LAYOUT_DIRECTION = NODE_LAYOUT_VERTICAL
-NODE_LAYOUT_DIRECTION = NODE_LAYOUT_HORIZONTAL
 
 # =================================== GLOBAL ===================================
 
@@ -65,6 +51,18 @@ class VersionEnum(Enum):
     MINOR = int(_v.split('.')[1])
     #:
     PATCH = int(_v.split('.')[2])
+
+
+class LayoutDirectionEnum(Enum):
+    """
+    Node graph nodes layout direction:
+    :py:mod:`NodeGraphQt.constants.ViewerLayoutEnum`
+    """
+    #: layout nodes left to right.
+    HORIZONTAL = 0
+    #: layout nodes top to bottom.
+    VERTICAL = 1
+
 
 # =================================== VIEWER ===================================
 
@@ -205,37 +203,48 @@ class PipeLayoutEnum(Enum):
 
 # === PROPERTY BIN WIDGET ===
 
-#: Property type will hidden in the properties bin (default).
-NODE_PROP = 0
-#: Property type represented with a QLabel widget in the properties bin.
-NODE_PROP_QLABEL = 2
-#: Property type represented with a QLineEdit widget in the properties bin.
-NODE_PROP_QLINEEDIT = 3
-#: Property type represented with a QTextEdit widget in the properties bin.
-NODE_PROP_QTEXTEDIT = 4
-#: Property type represented with a QComboBox widget in the properties bin.
-NODE_PROP_QCOMBO = 5
-#: Property type represented with a QCheckBox widget in the properties bin.
-NODE_PROP_QCHECKBOX = 6
-#: Property type represented with a QSpinBox widget in the properties bin.
-NODE_PROP_QSPINBOX = 7
-#: Property type represented with a ColorPicker widget in the properties bin.
-NODE_PROP_COLORPICKER = 8
-#: Property type represented with a Slider widget in the properties bin.
-NODE_PROP_SLIDER = 9
-#: Property type represented with a file selector widget in the properties bin.
-NODE_PROP_FILE = 10
-#: Property type represented with a file save widget in the properties bin.
-NODE_PROP_FILE_SAVE = 11
-#: Property type represented with a vector2 widget in the properties bin.
-NODE_PROP_VECTOR2 = 12
-#: Property type represented with vector3 widget in the properties bin.
-NODE_PROP_VECTOR3 = 13
-#: Property type represented with vector4 widget in the properties bin.
-NODE_PROP_VECTOR4 = 14
-#: Property type represented with float widget in the properties bin.
-NODE_PROP_FLOAT = 15
-#: Property type represented with int widget in the properties bin.
-NODE_PROP_INT = 16
-#: Property type represented with button widget in the properties bin.
-NODE_PROP_BUTTON = 17
+class NodePropWidgetEnum(Enum):
+    """
+    Mapping used for the :class:`NodeGraphQt.PropertiesBinWidget` to display a
+    node property in the specified widget type.
+
+    :py:mod:`NodeGraphQt.constants.NodePropWidgetEnum`
+    """
+    #: Node property will be hidden in the ``PropertiesBinWidget`` (default).
+    HIDDEN = 0
+    #: Node property represented with a ``QLabel`` widget.
+    QLABEL = 2
+    #: Node property represented with a ``QLineEdit`` widget.
+    QLINE_EDIT = 3
+    #: Node property represented with a ``QTextEdit`` widget.
+    QTEXT_EDIT = 4
+    #: Node property represented with a ``QComboBox`` widget.
+    QCOMBO_BOX = 5
+    #: Node property represented with a ``QCheckBox`` widget.
+    QCHECK_BOX = 6
+    #: Node property represented with a ``QSpinBox`` widget.
+    QSPIN_BOX = 7
+    #: Node property represented with a ``QDoubleSpinBox`` widget.
+    QDOUBLESPIN_BOX = 8
+    #: Node property represented with a ColorPicker widget.
+    COLOR_PICKER = 9
+    #: Node property represented with a ColorPicker (RGBA) widget.
+    COLOR4_PICKER = 10
+    #: Node property represented with a Slider widget.
+    SLIDER = 11
+    #: Node property represented with a file selector widget.
+    FILE_OPEN = 12
+    #: Node property represented with a file save widget.
+    FILE_SAVE = 13
+    #: Node property represented with a vector2 widget.
+    VECTOR2 = 14
+    #: Node property represented with vector3 widget.
+    VECTOR3 = 15
+    #: Node property represented with vector4 widget.
+    VECTOR4 = 16
+    #: Node property represented with float line edit widget.
+    FLOAT = 17
+    #: Node property represented with int line edit widget.
+    INT = 18
+    #: Node property represented with button widget.
+    BUTTON = 19

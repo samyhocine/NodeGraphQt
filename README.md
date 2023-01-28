@@ -5,9 +5,9 @@ applications.
 
 <img src="/docs/_images/screenshot.png" width="100%" title="NodeGraphQt">
 
-#### API Documentation
+#### Documentation
 
-<a href="https://jchanvfx.github.io/NodeGraphQt" target="_blank">NodeGraphQt API documentation</a>
+<a href="https://jchanvfx.github.io/NodeGraphQt" target="_blank">https://jchanvfx.github.io/NodeGraphQt</a>
 
 #### Navigation
 
@@ -39,7 +39,7 @@ applications.
 
 #### Examples
 
-See the [basic_example.py](/basic_example.py) python script in this repo.
+See the [basic_example.py](/examples//basic_example.py) python script in this repo.
 
 More examples can be found in the API documentation here:
 

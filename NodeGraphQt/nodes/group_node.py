@@ -1,18 +1,15 @@
 #!/usr/bin/python
-from NodeGraphQt.constants import (NODE_LAYOUT_VERTICAL,
-                                   NODE_LAYOUT_HORIZONTAL)
-
 from NodeGraphQt.nodes.base_node import BaseNode
 from NodeGraphQt.nodes.port_node import PortInputNode, PortOutputNode
-from NodeGraphQt.qgraphics.node_group import (GroupNodeItem,
-                                              GroupNodeVerticalItem)
+from NodeGraphQt.qgraphics.node_group import GroupNodeItem
 
 
 class GroupNode(BaseNode):
     """
-    The ``NodeGraphQt.GroupNode`` class extends from the
-    :class:``NodeGraphQt.BaseNode`` class with the ability to nest other nodes
-    inside of it.
+    `Implemented in` ``v0.2.0``
+
+    The ``NodeGraphQt.GroupNode`` class extends from the :class:``NodeGraphQt.BaseNode``
+    class with the ability to nest other nodes inside of it.
 
     **Inherited from:** :class:`NodeGraphQt.BaseNode`
 
@@ -24,12 +21,8 @@ class GroupNode(BaseNode):
 
     NODE_NAME = 'Group'
 
-    def __init__(self, qgraphics_views=None):
-        qgraphics_views = qgraphics_views or {
-            NODE_LAYOUT_HORIZONTAL: GroupNodeItem,
-            NODE_LAYOUT_VERTICAL: GroupNodeVerticalItem
-        }
-        super(GroupNode, self).__init__(qgraphics_views)
+    def __init__(self, qgraphics_item=None):
+        super(GroupNode, self).__init__(qgraphics_item or GroupNodeItem)
         self._input_port_nodes = {}
         self._output_port_nodes = {}
 
@@ -51,7 +44,7 @@ class GroupNode(BaseNode):
         or returns None.
 
         Returns:
-            NodeGraphQt.SubGraph or None: sub graph controller.
+            SubGraph or None: sub graph controller.
         """
         return self.graph.sub_graphs.get(self.id)
 
@@ -81,8 +74,12 @@ class GroupNode(BaseNode):
         See Also:
             :meth:`NodeGraph.expand_group_node`,
             :meth:`SubGraph.expand_group_node`.
+
+        Returns:
+            SubGraph: node graph used to manage the nodes expaneded session.
         """
-        self.graph.expand_group_node(self)
+        sub_graph = self.graph.expand_group_node(self)
+        return sub_graph
 
     def collapse(self):
         """

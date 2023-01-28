@@ -2,13 +2,7 @@
 import json
 from collections import defaultdict
 
-from NodeGraphQt.constants import (
-    NODE_PROP,
-    NODE_PROP_QLABEL,
-    NODE_PROP_QLINEEDIT,
-    NODE_PROP_QCHECKBOX,
-    NODE_PROP_COLORPICKER
-)
+from NodeGraphQt.constants import LayoutDirectionEnum, NodePropWidgetEnum
 from NodeGraphQt.errors import NodePropertyError
 
 
@@ -73,6 +67,7 @@ class NodeModel(object):
         self.width = 100.0
         self.height = 80.0
         self.pos = [0.0, 0.0]
+        self.layout_direction = LayoutDirectionEnum.HORIZONTAL.value
 
         # BaseNode attrs.
         self.inputs = {}
@@ -95,20 +90,21 @@ class NodeModel(object):
         # temp store the property widget types.
         # (deleted when node is added to the graph)
         self._TEMP_property_widget_types = {
-            'type_': NODE_PROP_QLABEL,
-            'id': NODE_PROP_QLABEL,
-            'icon': NODE_PROP,
-            'name': NODE_PROP_QLINEEDIT,
-            'color': NODE_PROP_COLORPICKER,
-            'border_color': NODE_PROP,
-            'text_color': NODE_PROP_COLORPICKER,
-            'disabled': NODE_PROP_QCHECKBOX,
-            'selected': NODE_PROP,
-            'width': NODE_PROP,
-            'height': NODE_PROP,
-            'pos': NODE_PROP,
-            'inputs': NODE_PROP,
-            'outputs': NODE_PROP,
+            'type_': NodePropWidgetEnum.QLABEL.value,
+            'id': NodePropWidgetEnum.QLABEL.value,
+            'icon': NodePropWidgetEnum.HIDDEN.value,
+            'name': NodePropWidgetEnum.QLINE_EDIT.value,
+            'color': NodePropWidgetEnum.COLOR_PICKER.value,
+            'border_color': NodePropWidgetEnum.HIDDEN.value,
+            'text_color': NodePropWidgetEnum.COLOR_PICKER.value,
+            'disabled': NodePropWidgetEnum.QCHECK_BOX.value,
+            'selected': NodePropWidgetEnum.HIDDEN.value,
+            'width': NodePropWidgetEnum.HIDDEN.value,
+            'height': NodePropWidgetEnum.HIDDEN.value,
+            'pos': NodePropWidgetEnum.HIDDEN.value,
+            'layout_direction': NodePropWidgetEnum.HIDDEN.value,
+            'inputs': NodePropWidgetEnum.HIDDEN.value,
+            'outputs': NodePropWidgetEnum.HIDDEN.value,
         }
 
     def __repr__(self):
@@ -116,18 +112,20 @@ class NodeModel(object):
             self.__class__.__name__, self.name, self.id)
 
     def add_property(self, name, value, items=None, range=None,
-                     widget_type=NODE_PROP, tab=None):
+                     widget_type=None, tab=None):
         """
-        add custom property.
+        add custom property or raises an error if the property name is already
+        taken.
 
         Args:
             name (str): name of the property.
             value (object): data.
             items (list[str]): items used by widget type NODE_PROP_QCOMBO.
-            range (tuple)): min, max values used by NODE_PROP_SLIDER.
+            range (tuple): min, max values used by NODE_PROP_SLIDER.
             widget_type (int): widget type flag.
             tab (str): widget tab name.
         """
+        widget_type = widget_type or NodePropWidgetEnum.HIDDEN.value
         tab = tab or 'Properties'
 
         if name in self.properties.keys():
@@ -147,10 +145,14 @@ class NodeModel(object):
             if range:
                 self._TEMP_property_attrs[name]['range'] = range
         else:
-            attrs = {self.type_: {name: {
-                'widget_type': widget_type,
-                'tab': tab
-            }}}
+            attrs = {
+                self.type_: {
+                    name: {
+                        'widget_type': widget_type,
+                        'tab': tab
+                    }
+                }
+            }
             if items:
                 attrs[self.type_][name]['items'] = items
             if range:
@@ -158,6 +160,11 @@ class NodeModel(object):
             self._graph_model.set_node_common_properties(attrs)
 
     def set_property(self, name, value):
+        """
+        Args:
+            name (str): property name.
+            value (object): property value.
+        """
         if name in self.properties.keys():
             setattr(self, name, value)
         elif name in self._custom_prop.keys():
@@ -166,17 +173,48 @@ class NodeModel(object):
             raise NodePropertyError('No property "{}"'.format(name))
 
     def get_property(self, name):
+        """
+        Args:
+            name (str): property name.
+
+        Returns:
+            object: property value.
+        """
         if name in self.properties.keys():
             return self.properties[name]
         return self._custom_prop.get(name)
 
+    def is_custom_property(self, name):
+        """
+        Args:
+            name (str): property name.
+
+        Returns:
+            bool: true if custom property.
+        """
+        return name in self._custom_prop
+
     def get_widget_type(self, name):
+        """
+        Args:
+            name (str): property name.
+
+        Returns:
+            int: node property widget type.
+        """
         model = self._graph_model
         if model is None:
             return self._TEMP_property_widget_types.get(name)
         return model.get_node_common_properties(self.type_)[name]['widget_type']
 
     def get_tab_name(self, name):
+        """
+        Args:
+            name (str): property name.
+
+        Returns:
+            str: name of the tab for the properties bin.
+        """
         model = self._graph_model
         if model is None:
             attrs = self._TEMP_property_attrs.get(name)
@@ -230,6 +268,7 @@ class NodeModel(object):
                     'width': 0.0,
                     'height: 0.0,
                     'pos': (0.0, 0.0),
+                    'layout_direction': 0,
                     'custom': {},
                     'inputs': {
                         <port_name>: {<node_id>: [<port_name>, <port_name>]}
@@ -317,6 +356,7 @@ class NodeGraphModel(object):
         self.session = ''
         self.acyclic = True
         self.pipe_collision = False
+        self.layout_direction = LayoutDirectionEnum.HORIZONTAL.value
 
     def common_properties(self):
         """

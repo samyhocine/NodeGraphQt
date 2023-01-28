@@ -3,17 +3,11 @@ from collections import OrderedDict
 
 from NodeGraphQt.base.node import NodeObject
 from NodeGraphQt.base.port import Port
-from NodeGraphQt.constants import (NODE_PROP_QLABEL,
-                                   NODE_PROP_QLINEEDIT,
-                                   NODE_PROP_QCOMBO,
-                                   NODE_PROP_QCHECKBOX,
-                                   PortTypeEnum,
-                                   NODE_LAYOUT_VERTICAL,
-                                   NODE_LAYOUT_HORIZONTAL)
+from NodeGraphQt.constants import NodePropWidgetEnum, PortTypeEnum
 from NodeGraphQt.errors import (PortError,
                                 PortRegistrationError,
                                 NodeWidgetError)
-from NodeGraphQt.qgraphics.node_base import NodeItem, NodeItemVertical
+from NodeGraphQt.qgraphics.node_base import NodeItem
 from NodeGraphQt.widgets.node_widgets import (NodeBaseWidget,
                                               NodeComboBox,
                                               NodeLineEdit,
@@ -57,20 +51,10 @@ class BaseNode(NodeObject):
 
     NODE_NAME = 'Node'
 
-    def __init__(self, qgraphics_views=None):
-        qgraphics_views = qgraphics_views or {
-            NODE_LAYOUT_HORIZONTAL: NodeItem,
-            NODE_LAYOUT_VERTICAL: NodeItemVertical
-        }
-        super(BaseNode, self).__init__(qgraphics_views)
+    def __init__(self, qgraphics_item=None):
+        super(BaseNode, self).__init__(qgraphics_item or NodeItem)
         self._inputs = []
         self._outputs = []
-
-    def draw(self):
-        """
-        Redraws the node in the scene.
-        """
-        self.view.draw_node()
 
     def update_model(self):
         """
@@ -82,7 +66,30 @@ class BaseNode(NodeObject):
             self.model.set_property(name, val)
 
         for name, widget in self.view.widgets.items():
-            self.model.set_property(name, widget.value)
+            self.model.set_property(name, widget.get_value())
+
+    def set_layout_direction(self, value=0):
+        """
+        Sets the node layout direction to either horizontal or vertical on
+        the current node only.
+
+        `Implemented in` ``v0.3.0``
+
+        See Also:
+            :meth:`NodeGraph.set_layout_direction`,
+            :meth:`NodeObject.layout_direction`
+
+
+        Warnings:
+            This function does not register to the undo stack.
+
+        Args:
+            value (int): layout direction mode.
+        """
+        # base logic to update the model and view attributes only.
+        super(BaseNode, self).set_layout_direction(value)
+        # redraw the node.
+        self._view.draw_node()
 
     def set_icon(self, icon=None):
         """
@@ -131,7 +138,7 @@ class BaseNode(NodeObject):
         """
         return self.view.widgets.get(name)
 
-    def add_custom_widget(self, widget, widget_type=NODE_PROP_QLABEL, tab=None):
+    def add_custom_widget(self, widget, widget_type=None, tab=None):
         """
         Add a custom node widget into the node.
 
@@ -144,12 +151,15 @@ class BaseNode(NodeObject):
         Args:
             widget (NodeBaseWidget): node widget class object.
             widget_type: widget flag to display in the
-                :class:`NodeGraphQt.PropertiesBinWidget` (default: QLabel).
+                :class:`NodeGraphQt.PropertiesBinWidget`
+                (default: :attr:`NodeGraphQt.constants.NodePropWidgetEnum.HIDDEN`).
             tab (str): name of the widget tab to display in.
         """
         if not isinstance(widget, NodeBaseWidget):
             raise NodeWidgetError(
                 '\'widget\' must be an instance of a NodeBaseWidget')
+
+        widget_type = widget_type or NodePropWidgetEnum.HIDDEN.value
         self.create_property(widget.get_name(),
                              widget.get_value(),
                              widget_type=widget_type,
@@ -157,6 +167,8 @@ class BaseNode(NodeObject):
         widget.value_changed.connect(lambda k, v: self.set_property(k, v))
         widget._node = self
         self.view.add_widget(widget)
+        #: redraw node to address calls outside the "__init__" func.
+        self.view.draw_node()
 
     def add_combo_menu(self, name, label='', items=None, tab=None):
         """
@@ -174,13 +186,18 @@ class BaseNode(NodeObject):
             items (list[str]): items to be added into the menu.
             tab (str): name of the widget tab to display in.
         """
-        items = items or []
         self.create_property(
-            name, items[0], items=items, widget_type=NODE_PROP_QCOMBO, tab=tab)
-
+            name,
+            value=items[0] if items else None,
+            items=items or [],
+            widget_type=NodePropWidgetEnum.QCOMBO_BOX.value,
+            tab=tab
+        )
         widget = NodeComboBox(self.view, name, label, items)
         widget.value_changed.connect(lambda k, v: self.set_property(k, v))
         self.view.add_widget(widget)
+        #: redraw node to address calls outside the "__init__" func.
+        self.view.draw_node()
 
     def add_text_input(self, name, label='', text='', tab=None):
         """
@@ -199,10 +216,16 @@ class BaseNode(NodeObject):
             tab (str): name of the widget tab to display in.
         """
         self.create_property(
-            name, text, widget_type=NODE_PROP_QLINEEDIT, tab=tab)
+            name,
+            value=text,
+            widget_type=NodePropWidgetEnum.QLINE_EDIT.value,
+            tab=tab
+        )
         widget = NodeLineEdit(self.view, name, label, text)
         widget.value_changed.connect(lambda k, v: self.set_property(k, v))
         self.view.add_widget(widget)
+        #: redraw node to address calls outside the "__init__" func.
+        self.view.draw_node()
 
     def add_checkbox(self, name, label='', text='', state=False, tab=None):
         """
@@ -222,10 +245,16 @@ class BaseNode(NodeObject):
             tab (str): name of the widget tab to display in.
         """
         self.create_property(
-            name, state, widget_type=NODE_PROP_QCHECKBOX, tab=tab)
+            name,
+            value=state,
+            widget_type=NodePropWidgetEnum.QCHECK_BOX.value,
+            tab=tab
+        )
         widget = NodeCheckBox(self.view, name, label, text, state)
         widget.value_changed.connect(lambda k, v: self.set_property(k, v))
         self.view.add_widget(widget)
+        #: redraw node to address calls outside the "__init__" func.
+        self.view.draw_node()
 
     def add_input(self, name='input', multi_input=False, display_name=True,
                   color=None, locked=False, painter_func=None):
@@ -372,7 +401,7 @@ class BaseNode(NodeObject):
         self._model.inputs.pop(port.name())
         self._view.delete_input(port.view)
         port.model.node = None
-        self.draw()
+        self._view.draw_node()
 
     def delete_output(self, port):
         """
@@ -402,7 +431,7 @@ class BaseNode(NodeObject):
         self._model.outputs.pop(port.name())
         self._view.delete_output(port.view)
         port.model.node = None
-        self.draw()
+        self._view.draw_node()
 
     def set_port_deletion_allowed(self, mode=False):
         """
@@ -490,7 +519,7 @@ class BaseNode(NodeObject):
                          display_name=port['display_name'],
                          locked=port.get('locked') or False)
          for port in port_data['output_ports']]
-        self.draw()
+        self._view.draw_node()
 
     def inputs(self):
         """

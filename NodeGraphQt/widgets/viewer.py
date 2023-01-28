@@ -6,7 +6,9 @@ from distutils.version import LooseVersion
 from Qt import QtGui, QtCore, QtWidgets
 
 from NodeGraphQt.base.menu import BaseMenu
-from NodeGraphQt.constants import PortTypeEnum, PipeLayoutEnum
+from NodeGraphQt.constants import (
+    LayoutDirectionEnum, PortTypeEnum, PipeLayoutEnum
+)
 from NodeGraphQt.qgraphics.node_abstract import AbstractNodeItem
 from NodeGraphQt.qgraphics.node_backdrop import BackdropNodeItem
 from NodeGraphQt.qgraphics.pipe import PipeItem, LivePipeItem
@@ -71,6 +73,8 @@ class NodeViewer(QtWidgets.QGraphicsView):
         self._update_scene()
         self._last_size = self.size()
 
+        self._layout_direction = LayoutDirectionEnum.HORIZONTAL.value
+
         self._pipe_layout = PipeLayoutEnum.CURVED.value
         self._detached_port = None
         self._start_port = None
@@ -107,13 +111,12 @@ class NodeViewer(QtWidgets.QGraphicsView):
         self._ctx_graph_menu = BaseMenu('NodeGraph', self)
         self._ctx_node_menu = BaseMenu('Nodes', self)
 
-        self._undo_action = undo_stack.createUndoAction(self, '&Undo')
-        self._undo_action.setShortcuts(QtGui.QKeySequence.Undo)
-        self._redo_action = undo_stack.createRedoAction(self, '&Redo')
-        self._redo_action.setShortcuts(QtGui.QKeySequence.Redo)
-        if LooseVersion(QtCore.qVersion()) >= LooseVersion('5.10'):
-            self._undo_action.setShortcutVisibleInContextMenu(True)
-            self._redo_action.setShortcutVisibleInContextMenu(True)
+        if undo_stack:
+            self._undo_action = undo_stack.createUndoAction(self, '&Undo')
+            self._redo_action = undo_stack.createRedoAction(self, '&Redo')
+        else:
+            self._undo_action = None
+            self._redo_action = None
 
         self._build_context_menus()
 
@@ -132,6 +135,27 @@ class NodeViewer(QtWidgets.QGraphicsView):
         return '<{}() object at {}>'.format(
             self.__class__.__name__, hex(id(self)))
 
+    def focusInEvent(self, event):
+        """
+        Args:
+            event (QtGui.QFocusEvent): focus event.
+        """
+        # workaround fix: Re-populate the QMenuBar so the QAction shotcuts don't
+        #                 conflict with parent existing host app.
+        self._ctx_menu_bar.addMenu(self._ctx_graph_menu)
+        self._ctx_menu_bar.addMenu(self._ctx_node_menu)
+        return super(NodeViewer, self).focusInEvent(event)
+
+    def focusOutEvent(self, event):
+        """
+        Args:
+            event (QtGui.QFocusEvent): focus event.
+        """
+        # workaround fix: Clear the QMenuBar so the QAction shotcuts don't
+        #                 conflict with existing parent host app.
+        self._ctx_menu_bar.clear()
+        return super(NodeViewer, self).focusOutEvent(event)
+
     # --- private ---
 
     def _build_context_menus(self):
@@ -146,10 +170,18 @@ class NodeViewer(QtWidgets.QGraphicsView):
         self._ctx_menu_bar.addMenu(self._ctx_graph_menu)
         self._ctx_menu_bar.addMenu(self._ctx_node_menu)
 
-        # undo & redo always at the top of the "node graph context menu".
-        self._ctx_graph_menu.addAction(self._undo_action)
-        self._ctx_graph_menu.addAction(self._redo_action)
-        self._ctx_graph_menu.addSeparator()
+        # setup the undo and redo actions.
+        if self._undo_action and self._redo_action:
+            self._undo_action.setShortcuts(QtGui.QKeySequence.Undo)
+            self._redo_action.setShortcuts(QtGui.QKeySequence.Redo)
+            if LooseVersion(QtCore.qVersion()) >= LooseVersion('5.10'):
+                self._undo_action.setShortcutVisibleInContextMenu(True)
+                self._redo_action.setShortcutVisibleInContextMenu(True)
+
+            # undo & redo always at the top of the "node graph context menu".
+            self._ctx_graph_menu.addAction(self._undo_action)
+            self._ctx_graph_menu.addAction(self._redo_action)
+            self._ctx_graph_menu.addSeparator()
 
     def _set_viewer_zoom(self, value, sensitivity=None, pos=None):
         """
@@ -918,7 +950,31 @@ class NodeViewer(QtWidgets.QGraphicsView):
         if isinstance(self._search_widget, TabSearchMenuWidget):
             self._search_widget.rebuild = True
 
+    def qaction_for_undo(self):
+        """
+        Get the undo QAction from the parent undo stack.
+
+        Returns:
+            QtWidgets.QAction: undo action.
+        """
+        return self._undo_action
+
+    def qaction_for_redo(self):
+        """
+        Get the redo QAction from the parent undo stack.
+
+        Returns:
+            QtWidgets.QAction: redo action.
+        """
+        return self._redo_action
+
     def context_menus(self):
+        """
+        All the available context menus for the viewer.
+
+        Returns:
+            dict: viewer context menu.
+        """
         return {'graph': self._ctx_graph_menu, 'nodes': self._ctx_node_menu}
 
     def question_dialog(self, text, title='Node Graph'):
@@ -999,7 +1055,7 @@ class NodeViewer(QtWidgets.QGraphicsView):
         Returns all pipe qgraphic items.
 
         Returns:
-            list[Pipe]: instances of pipe items.
+            list[PipeItem]: instances of pipe items.
         """
         excl = [self._LIVE_PIPE, self._SLICER_PIPE]
         return [i for i in self.scene().items()
@@ -1133,6 +1189,9 @@ class NodeViewer(QtWidgets.QGraphicsView):
                 nodes = self.selected_nodes()
             elif self.all_nodes():
                 nodes = self.all_nodes()
+            if not nodes:
+                return
+
         if len(nodes) == 1:
             self.centerOn(nodes[0])
         else:
@@ -1153,11 +1212,33 @@ class NodeViewer(QtWidgets.QGraphicsView):
         Sets the pipe layout mode and redraw all pipe items in the scene.
 
         Args:
-            layout (int): pipe layout mode. (see the contants module)
+            layout (int): pipe layout mode. (see the constants module)
         """
         self._pipe_layout = layout
         for pipe in self.all_pipes():
             pipe.draw_path(pipe.input_port, pipe.output_port)
+
+    def get_layout_direction(self):
+        """
+        Returns the layout direction set on the the node graph viewer
+        used by the pipe items for drawing.
+
+        Returns:
+            int: graph layout mode.
+        """
+        return self._layout_direction
+
+    def set_layout_direction(self, direction):
+        """
+        Sets the node graph viewer layout direction for re-drawing
+        the pipe items.
+
+        Args:
+            direction (int): graph layout direction.
+        """
+        self._layout_direction = direction
+        for pipe_item in self.all_pipes():
+            pipe_item.draw_path(pipe_item.input_port, pipe_item.output_port)
 
     def reset_zoom(self, cent=None):
         """
